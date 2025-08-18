@@ -15,8 +15,8 @@ const Index = () => {
                 <BookOpen className="h-5 w-5 text-primary-foreground" />
               </div>
               <div>
-                <h1 className="text-lg font-semibold text-foreground">Word Definer</h1>
-                <p className="text-xs text-muted-foreground">Powered by Google Gemini | zelux unity</p>
+                <h1 className="text-lg font-semibold text-foreground">DefiniyCraft 2.0</h1>
+                <p className="text-xs text-muted-foreground">Powered by Google Gemini | zelux lab V-1.0</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -48,11 +48,11 @@ const Index = () => {
           {/* Hero Section */}
           <div className="text-center space-y-4">
             <h2 className="text-3xl font-bold text-foreground sm:text-4xl">
-              Unlock the Meaning of Any Word
+              DefiniyCraft: Google AI-Powered Dictionary
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Discover comprehensive definitions, Compare Words, Find Sysnonyms with real-world examples 
-              powered by zelux unity using Gemini API.
+              Cambridge Dictionary | Discover comprehensive definitions, Compare Words, Find Sysnonyms with real-world examples 
+              powered by zelux lab using Google Gemini AI.
             </p>
           </div>
 
@@ -65,7 +65,7 @@ const Index = () => {
           {/* Footer */}
           <footer className="text-center pt-8 border-t border-border/50">
             <p className="text-sm text-muted-foreground">
-              Built with 🤍💦 by Min Khant! | All rights served to 'zelux unity
+              Built with 🤍💦 by Min Khant! | All rights served to 'zelux lab
             </p>
           </footer>
         </div>

@@ -1,261 +1,94 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { Loader2, Download, Sparkles, Hash } from 'lucide-react'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Loader2, Download, Sparkles, Tags, Quote, BookText } from 'lucide-react'
 import { toast } from 'sonner'
+import { motion, AnimatePresence } from 'framer-motion'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import rehypeRaw from 'rehype-raw'
 import { GeminiApiService, processWordList } from './shared/apiService'
-import { SynonymData } from './shared/types'
 
 interface FindSynonymsProps {
   apiKey: string
   englishLevel: string
 }
 
+// --- Reusable button component ---
+const DownloadButton = ({ onClick }: { onClick: () => void }) => (
+  <Button variant="outline" onClick={onClick} className="flex items-center gap-2">
+    <Download className="h-4 w-4" />
+    Download Synonyms
+  </Button>
+)
+
 export default function FindSynonyms({ apiKey, englishLevel }: FindSynonymsProps) {
   const [words, setWords] = useState('')
-  const [synonyms, setSynonyms] = useState<SynonymData[]>([])
+  const [results, setResults] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
 
-  const parseSynonyms = (response: string, expectedWords: string[]): SynonymData[] => {
-    const synonymData: SynonymData[] = []
-    
-    const tryParseStructured = (text: string): SynonymData[] => {
-      const structured: SynonymData[] = []
-      
-      expectedWords.forEach(word => {
-        // Look for word sections with flexible patterns
-        const wordRegex = new RegExp(`(?:^|\\n)(?:\\d+\\.?\\s*)?(?:\\*\\*)?${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:\\*\\*)?[:\\s]`, 'im')
-        const match = text.search(wordRegex)
-        
-        if (match !== -1) {
-          // Extract section for this word
-          const nextWordIndex = expectedWords.findIndex((w, i) => 
-            i > expectedWords.indexOf(word) && text.indexOf(w, match + 1) > match
-          )
-          const sectionEnd = nextWordIndex >= 0 ? 
-            text.indexOf(expectedWords[nextWordIndex], match + 1) : 
-            text.length
-          
-          const section = text.slice(match, sectionEnd)
-          
-          // Extract synonyms with multiple strategies
-          const extractSynonyms = (): string[] => {
-            const patterns = [
-              /synonyms?[:\-\s]*([^\n]+(?:\n(?![\w\s]*:)[^\n]+)*)/i,
-              /similar\s+words?[:\-\s]*([^\n]+)/i,
-              /alternatives?[:\-\s]*([^\n]+)/i,
-              /other\s+words?[:\-\s]*([^\n]+)/i
-            ]
-            
-            for (const pattern of patterns) {
-              const match = section.match(pattern)
-              if (match && match[1]) {
-                const synonymsText = match[1].replace(/\n/g, ' ')
-                const synonyms = synonymsText
-                  .split(/[,;]|\s+and\s+|\s+or\s+|\s*\|\s*/)
-                  .map(s => s.trim().replace(/[^\w\s-']/g, '').trim())
-                  .filter(s => s && s.length > 1 && s.toLowerCase() !== word.toLowerCase())
-                  .slice(0, 8)
-                
-                if (synonyms.length > 0) return synonyms
-              }
-            }
-            
-            // Try to extract from any line that contains multiple words
-            const lines = section.split('\n')
-            for (const line of lines) {
-              if (line.includes(',') || line.includes(';')) {
-                const words = line
-                  .split(/[,;]/)
-                  .map(s => s.trim().replace(/[^\w\s-']/g, '').trim())
-                  .filter(s => s && s.length > 1 && s.toLowerCase() !== word.toLowerCase())
-                
-                if (words.length >= 2) return words.slice(0, 6)
-              }
-            }
-            
-            return []
-          }
-          
-          const synonyms = extractSynonyms()
-          
-          // Extract explanation
-          const extractExplanation = (): string => {
-            const patterns = [
-              /explanation[:\-\s]*([^\n]+(?:\n(?![\w\s]*:)[^\n]+)*)/i,
-              /note[:\-\s]*([^\n]+)/i,
-              /description[:\-\s]*([^\n]+)/i
-            ]
-            
-            for (const pattern of patterns) {
-              const match = section.match(pattern)
-              if (match && match[1]?.trim()) {
-                return match[1].trim().replace(/\n/g, ' ').replace(/\s+/g, ' ')
-              }
-            }
-            
-            return synonyms.length > 0 
-              ? `Alternative words for "${word}" with similar meanings.`
-              : `Synonym information for "${word}" - see complete analysis below.`
-          }
-          
-          // Extract examples
-          const extractExample = (type: 'original' | 'synonym'): string => {
-            const patterns = type === 'original' 
-              ? [/(?:original|example)[:\-\s]*([^\n]+)/i, /e\.g\.?[:\-\s]*([^\n]+)/i]
-              : [/(?:synonym\s+example|alternative)[:\-\s]*([^\n]+)/i, /instead[:\-\s]*([^\n]+)/i]
-            
-            for (const pattern of patterns) {
-              const match = section.match(pattern)
-              if (match && match[1]?.trim()) {
-                return match[1].trim()
-              }
-            }
-            
-            return type === 'original' 
-              ? `Example sentence using "${word}"`
-              : 'Alternative example not provided'
-          }
-          
-          structured.push({
-            word: word.trim(),
-            synonyms: synonyms.length > 0 ? synonyms : [`Related to ${word}`],
-            explanation: extractExplanation(),
-            originalExample: extractExample('original'),
-            synonymExample: extractExample('synonym')
-          })
-        }
-      })
-      
-      return structured
-    }
-    
-    // Try structured parsing
-    const structured = tryParseStructured(response)
-    
-    // If we got good results for most words, use structured
-    if (structured.length >= expectedWords.length * 0.7) {
-      // Fill in missing words
-      expectedWords.forEach(word => {
-        if (!structured.find(syn => syn.word.toLowerCase() === word.toLowerCase())) {
-          structured.push({
-            word: word.trim(),
-            synonyms: ['See detailed analysis below'],
-            explanation: 'Comprehensive synonym information available in the complete response.',
-            originalExample: 'Check full response for examples',
-            synonymExample: 'Refer to complete analysis'
-          })
-        }
-      })
-      return structured
-    }
-    
-    // Fallback: create basic entries
-    return expectedWords.map(word => ({
-      word: word.trim(),
-      synonyms: ['Detailed in full response'],
-      explanation: 'Complete synonym analysis provided below - structured parsing unavailable.',
-      originalExample: 'Examples available in full response',
-      synonymExample: 'See complete analysis for alternatives'
-    }))
-  }
-
   const findSynonyms = async () => {
-    if (!words.trim()) {
+    const processedWordList = processWordList(words)
+    if (processedWordList.length < 1) {
       toast.error('Please enter at least one word')
       return
     }
 
     setLoading(true)
-    setSynonyms([])
+    setResults([])
 
     try {
       const apiService = new GeminiApiService(apiKey)
-      const processedWordList = processWordList(words)
       const wordList = processedWordList.join(', ')
 
       const getLevelInstruction = (level: string) => {
         switch (level) {
-          case '5yrs-old':
-            return 'Provide simple synonyms that a 5-year-old would understand. Use basic words and simple explanations about when to use each word.'
-          case 'Proficient':
-            return 'Include sophisticated synonyms with subtle distinctions, advanced usage contexts, and detailed explanations of connotative differences.'
+          case 'beginner':
+            return 'Use simple vocabulary and avoid complex sentence structures.'
+          case 'intermediate':
+            return 'Use moderately challenging vocabulary suitable for intermediate learners.'
+          case 'advanced':
+            return 'Use rich and nuanced language appropriate for advanced learners.'
           default:
-            return 'Provide standard synonyms with clear explanations suitable for intermediate English learners.'
+            return ''
         }
       }
 
-      const prompt = `Provide 3–5 close synonyms for each word in the following list: ${wordList}
+      const prompt = `
+      For each word in this list: "${wordList}", provide a detailed synonym analysis.
 
-${getLevelInstruction(englishLevel)}
+      **Formatting Rules:**
+      - **USE MARKDOWN** for the entire response.
+      - For each word, create a Level 2 Heading (e.g., '## Happy').
+      - Under each heading, provide the following sections with bolded labels:
+        - '**Synonyms:**' A comma-separated list of 5-7 relevant synonyms.
+        - '**Usage Notes:**' A brief paragraph explaining the nuances.
+        - '**Examples:**' A bulleted list with two sentences.
+      - **CRITICAL: Throughout "Usage Notes" and "Examples", wrap important keywords in HTML <mark> tags to highlight them.**
 
-For each word, format your response like this (repeat for all ${processedWordList.length} words):
-
-word | synonyms
-synonym1, synonym2, synonym3, synonym4, synonym5
-
-A brief explanation of how these synonyms differ in tone, usage, or context (plain language only)
-
-One example sentence using the original word
-
-One example sentence using a synonym in a similar context
-
-Formatting rules:
-
-Use plain text only (NO HTML tags)
-
-Separate each word block with TWO blank lines
-
-Make the tone clear, helpful, and concise`
+      ${getLevelInstruction(englishLevel)}
+      `
 
       const text = await apiService.generateContent(prompt)
-      const parsedSynonyms = parseSynonyms(text, processedWordList)
-      
-      if (parsedSynonyms.length === 0) {
-        // Fallback: create basic synonym data from raw response
-        const fallbackSynonyms: SynonymData[] = processedWordList.map(word => ({
-          word: word.toLowerCase(),
-          synonyms: [],
-          explanation: `AI response parsing failed. Raw response: ${text.slice(0, 200)}...`,
-          originalExample: 'No example available',
-          synonymExample: 'No example available'
-        }))
-        setSynonyms(fallbackSynonyms)
-        toast.error('Parsing failed, showing raw response. Please try again.')
-      } else {
-        setSynonyms(parsedSynonyms)
-        toast.success(`Successfully found synonyms for ${parsedSynonyms.length} word(s)!`)
-      }
+      const sections = text.split(/\n(?=## )/).filter(section => section.trim().length > 0)
+      setResults(sections)
+      toast.success(`Successfully found synonyms for ${sections.length} word(s)!`)
+
     } catch (error: any) {
       console.error('Error finding synonyms:', error)
-      if (error.message?.includes('API_KEY_INVALID') || error.message?.includes('Invalid API key')) {
-        toast.error('Invalid API key. Please check your Gemini API key.')
-      } else {
-        toast.error(`Error: ${error.message || 'Failed to find synonyms. Please try again.'}`)
-      }
+      toast.error(`Error: ${error.message || 'Failed to find synonyms.'}`)
     } finally {
       setLoading(false)
     }
   }
 
   const downloadSynonyms = () => {
-    if (synonyms.length === 0) {
-      toast.error('No synonyms to download')
-      return
-    }
-
-    let content = 'Word Synonyms\n\n'
-    synonyms.forEach((syn, index) => {
-      content += `${index + 1}. ${syn.word}\n`
-      content += `   Synonyms: ${syn.synonyms.join(', ')}\n`
-      content += `   Explanation: ${syn.explanation}\n`
-      content += `   Original Example: ${syn.originalExample}\n`
-      content += `   Synonym Example: ${syn.synonymExample}\n\n`
-    })
-
+    if (results.length === 0) return
+    const content = `Word Synonym Analysis\n\n${results.join('\n\n---\n\n')}`
     const blob = new Blob([content], { type: 'text/plain' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -270,119 +103,157 @@ Make the tone clear, helpful, and concise`
 
   return (
     <div className="space-y-6">
-      {/* Input */}
-      <div className="space-y-4">
-        <Textarea
-          placeholder="Enter words to find synonyms for, separated by commas (e.g., happy, beautiful, smart)"
-          value={words}
-          onChange={(e) => setWords(e.target.value)}
-          className="min-h-[100px] bg-background/50 resize-none"
-        />
-        
-        <div className="flex gap-2 flex-wrap">
-          <Button 
-            onClick={findSynonyms} 
-            disabled={loading}
-            className="flex-1 min-w-[200px] bg-mode-synonyms-accent hover:bg-mode-synonyms-accent/90"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Finding Synonyms...
-              </>
-            ) : (
-              <>
-                <Sparkles className="h-4 w-4" />
-                Find Synonyms
-              </>
-            )}
-          </Button>
-          
-          {synonyms.length > 0 && (
+      <Card className="bg-gradient-card border-border/50 shadow-elegant">
+        <CardContent className="p-6 space-y-4">
+          <Textarea
+            placeholder="Enter words to find synonyms for (e.g., happy, beautiful, smart)"
+            value={words}
+            onChange={(e) => setWords(e.target.value)}
+            className="min-h-[100px] bg-background/50 resize-none"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) findSynonyms()
+            }}
+          />
+          <div className="flex gap-2 flex-wrap">
             <Button
-              variant="outline"
-              onClick={downloadSynonyms}
-              className="flex items-center gap-2"
+              onClick={findSynonyms}
+              disabled={loading}
+              className="flex-1 min-w-[200px] bg-mode-synonyms-accent hover:bg-mode-synonyms-accent/90 text-white"
             >
-              <Download className="h-4 w-4" />
-              Download
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Finding Synonyms...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Find Synonyms
+                </>
+              )}
             </Button>
-          )}
-        </div>
-      </div>
+            {results.length > 0 && !loading && <DownloadButton onClick={downloadSynonyms} />}
+          </div>
+          <p className="text-xs text-muted-foreground text-center sm:text-right pt-1">
+            Pro tip: Use <kbd className="px-2 py-1.5 text-xs font-semibold text-gray-800 bg-gray-100 border border-gray-200 rounded-lg">Ctrl + Enter</kbd> to submit.
+          </p>
+        </CardContent>
+      </Card>
 
-      {/* Results */}
-      {synonyms.length > 0 && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-mode-synonyms-accent" />
-              Synonyms ({synonyms.length})
-            </h3>
-          </div>
-          
-          <div className="grid gap-6 max-h-[600px] overflow-y-auto pr-2">
-            {synonyms.map((synonym, index) => (
-              <Card key={index} className="bg-gradient-card border-border/50 shadow-elegant hover:shadow-elegant-hover transition-all duration-300">
-                <CardHeader className="pb-4">
-                  <CardTitle className="text-xl font-bold text-foreground capitalize flex items-center gap-2">
-                    {synonym.word}
-                    <Badge variant="secondary" className="bg-mode-synonyms-accent/10 text-mode-synonyms-accent">
-                      <Hash className="h-3 w-3 mr-1" />
-                      {synonym.synonyms.length} synonyms
-                    </Badge>
-                  </CardTitle>
-                </CardHeader>
-                
-                <CardContent className="space-y-4">
-                  {/* Synonyms Grid */}
-                  <div>
-                    <h4 className="font-semibold text-sm mb-2 text-foreground">Synonyms:</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {synonym.synonyms.map((syn, synIndex) => (
-                        <Badge 
-                          key={synIndex} 
-                          variant="outline"
-                          className="bg-mode-synonyms-accent/5 border-mode-synonyms-accent/30 text-foreground hover:bg-mode-synonyms-accent/10 transition-colors"
-                        >
-                          {syn}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                  
-                  <Separator />
-                  
-                  {/* Explanation */}
-                  <div>
-                    <h4 className="font-semibold text-sm mb-2 text-foreground">Usage Notes:</h4>
-                    <p className="text-muted-foreground text-sm leading-relaxed">
-                      {synonym.explanation}
-                    </p>
-                  </div>
-                  
-                  {/* Examples */}
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <div className="bg-mode-synonyms-accent/5 p-3 rounded-lg border border-mode-synonyms-accent/20">
-                      <h5 className="font-semibold text-xs mb-1 text-foreground uppercase tracking-wide">Original Word:</h5>
-                      <p className="text-foreground/80 text-sm italic">
-                        {synonym.originalExample}
-                      </p>
-                    </div>
-                    
-                    <div className="bg-mode-synonyms-accent/10 p-3 rounded-lg border border-mode-synonyms-accent/30">
-                      <h5 className="font-semibold text-xs mb-1 text-foreground uppercase tracking-wide">Using Synonym:</h5>
-                      <p className="text-foreground/80 text-sm italic">
-                        {synonym.synonymExample}
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+      <AnimatePresence>
+        {loading ? (
+          <motion.div key="loader" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <div className="space-y-4">
+              <Skeleton className="h-40 w-full" />
+              <Skeleton className="h-40 w-full" />
+            </div>
+          </motion.div>
+        ) : results.length > 0 ? (
+          <motion.div
+            key="results"
+            className="space-y-6"
+            variants={{ hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.1 } } }}
+            initial="hidden"
+            animate="visible"
+          >
+            {results.map((content, index) => (
+              <SynonymResultCard key={index} markdownContent={content} />
             ))}
-          </div>
-        </div>
-      )}
+            <div className="flex justify-center border-t border-border/50 pt-6">
+              <DownloadButton onClick={downloadSynonyms} />
+            </div>
+          </motion.div>
+        ) : (
+          <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <div className="text-center py-16 px-6 border-2 border-dashed border-border/50 rounded-lg bg-background/20">
+              <div className="mx-auto h-12 w-12 text-muted-foreground">
+                <Sparkles />
+              </div>
+              <h3 className="mt-2 text-lg font-semibold">Discover new words and alternatives</h3>
+              <p className="mt-1 text-sm text-muted-foreground">Enter a word to generate a list of synonyms.</p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
+  )
+}
+
+const SynonymResultCard = ({ markdownContent }: { markdownContent: string }) => {
+  const extractSection = (start: string, end?: string): string => {
+    const lower = markdownContent.toLowerCase()
+    const startIdx = lower.indexOf(start)
+    if (startIdx === -1) return ''
+    const from = startIdx + start.length
+    const endIdx = end ? lower.indexOf(end, from) : -1
+    return markdownContent.substring(from, endIdx !== -1 ? endIdx : undefined).trim()
+  }
+
+  const titleMatch = markdownContent.match(/^##\s*(.*)/)
+  const title = titleMatch ? titleMatch[1] : 'Synonym Analysis'
+
+  const synonymsText = extractSection('**synonyms:**', '**usage notes:**')
+  const usageNotesText = extractSection('**usage notes:**', '**examples:**')
+  const examplesText = extractSection('**examples:**')
+  const synonyms = synonymsText
+    .split(/, | and /)
+    .map((s) => s.trim())
+    .filter(Boolean)
+
+  return (
+    <motion.div variants={{ hidden: { y: 20, opacity: 0 }, visible: { y: 0, opacity: 1 } }}>
+      <Card className="bg-gradient-card border-border/50 shadow-elegant">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-xl capitalize">
+            <Sparkles className="h-5 w-5 text-mode-synonyms-accent" />
+            {title}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {synonyms.length > 0 && (
+            <div>
+              <h4 className="font-semibold text-sm mb-3 flex items-center gap-2 text-foreground">
+                <Tags className="h-4 w-4 text-muted-foreground" />
+                Synonyms
+              </h4>
+              <div className="flex flex-wrap gap-2">
+                {synonyms.map((syn, i) => (
+                  <Badge key={i} variant="outline" className="bg-background hover:bg-muted transition-colors cursor-default">
+                    {syn}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+          <Separator />
+          <div>
+            <h4 className="font-semibold text-sm mb-2 flex items-center gap-2 text-foreground">
+              <BookText className="h-4 w-4 text-muted-foreground" />
+              Usage Notes
+            </h4>
+            <div className="prose prose-sm prose-invert max-w-none text-muted-foreground">
+              <ReactMarkdown rehypePlugins={[rehypeRaw]}>{usageNotesText}</ReactMarkdown>
+            </div>
+          </div>
+          <div>
+            <h4 className="font-semibold text-sm mb-2 flex items-center gap-2 text-foreground">
+              <Quote className="h-4 w-4 text-muted-foreground" />
+              Examples
+            </h4>
+            <div className="prose prose-sm prose-invert max-w-none text-muted-foreground">
+              <ReactMarkdown
+                rehypePlugins={[rehypeRaw]}
+                components={{
+                  ul: ({ node, ...props }) => <ul className="space-y-3" {...props} />,
+                  li: ({ node, ...props }) => <li className="pl-2" {...props} />,
+                }}
+              >
+                {examplesText}
+              </ReactMarkdown>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </motion.div>
   )
 }

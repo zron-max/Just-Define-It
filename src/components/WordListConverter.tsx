@@ -1,142 +1,134 @@
-import { useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Copy, RotateCcw, ArrowRightLeft } from 'lucide-react'
-import { toast } from 'sonner'
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Copy, RotateCcw, ArrowRightLeft } from 'lucide-react';
+import { toast } from 'sonner';
+
+type ConversionMode = 'list-to-comma' | 'comma-to-list';
 
 export default function WordListConverter() {
-  const [input, setInput] = useState('')
-  const [output, setOutput] = useState('')
+  const [input, setInput] = useState('');
+  const [output, setOutput] = useState('');
+  const [conversionMode, setConversionMode] = useState<ConversionMode>('list-to-comma');
 
-  // Real-time conversion
-  const convertToCommaList = (text: string) => {
+  const convert = (text: string, mode: ConversionMode) => {
     if (!text.trim()) {
-      setOutput('')
-      return
+      setOutput('');
+      return;
     }
-    
-    const words = text
-      .split('\n')
-      .map(word => word.trim())
-      .filter(word => word.length > 0)
-    
-    const result = words.join(', ')
-    setOutput(result)
-  }
+
+    if (mode === 'list-to-comma') {
+      const words = text.split('\n').map(word => word.trim()).filter(word => word.length > 0);
+      setOutput(words.join(', '));
+    } else {
+      const words = text.split(',').map(word => word.trim()).filter(word => word.length > 0);
+      setOutput(words.join('\n'));
+    }
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newInput = e.target.value
-    setInput(newInput)
-    convertToCommaList(newInput)
-  }
+    const newInput = e.target.value;
+    setInput(newInput);
+    convert(newInput, conversionMode);
+  };
+
+  const swapConversion = () => {
+    setConversionMode(prevMode => (prevMode === 'list-to-comma' ? 'comma-to-list' : 'list-to-comma'));
+    setInput(output);
+    setOutput(input);
+    toast.info('Conversion direction swapped');
+  };
 
   const copyOutput = async () => {
     if (!output) {
-      toast.error('No output to copy')
-      return
+      toast.error('No output to copy');
+      return;
     }
-    
     try {
-      await navigator.clipboard.writeText(output)
-      toast.success('Output copied to clipboard!')
+      await navigator.clipboard.writeText(output);
+      toast.success('Output copied to clipboard!');
     } catch (error) {
-      toast.error('Failed to copy output')
+      toast.error('Failed to copy output');
     }
-  }
+  };
 
   const clearAll = () => {
-    setInput('')
-    setOutput('')
-    toast.success('Fields cleared')
-  }
+    setInput('');
+    setOutput('');
+    toast.success('Fields cleared');
+  };
 
-  const handleConvert = () => {
-    convertToCommaList(input)
-    if (output) {
-      toast.success('List converted successfully!')
-    }
-  }
+  const getWordCount = () => {
+    if (!input.trim()) return 0;
+    const separator = conversionMode === 'list-to-comma' ? '\n' : ',';
+    return input.split(separator).filter(word => word.trim()).length;
+  };
+
+  const isListToComma = conversionMode === 'list-to-comma';
+  const inputLabel = isListToComma ? 'Input (one word per line)' : 'Input (comma-separated)';
+  const outputLabel = isListToComma ? 'Output (comma-separated)' : 'Output (one word per line)';
+  const inputPlaceholder = isListToComma ? "apple\nbanana\ncherry" : "apple, banana, cherry";
+  const outputPlaceholder = isListToComma ? "apple, banana, cherry" : "apple\nbanana\ncherry";
 
   return (
-    <Card className="bg-gradient-card border-border/50 shadow-elegant">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <ArrowRightLeft className="h-5 w-5 text-primary" />
-          Word List Converter
-        </CardTitle>
-        <CardDescription>
-          Convert a vertical list of words (one per line) into a comma-separated format
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Input Section */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">
-              Input (one word per line)
-            </label>
-            <Textarea
-              placeholder="apple&#10;banana&#10;cherry&#10;date"
-              value={input}
-              onChange={handleInputChange}
-              className="bg-background/50 min-h-[120px] resize-none"
-              rows={5}
-            />
-          </div>
-
-          {/* Output Section */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">
-              Output (comma-separated)
-            </label>
-            <Textarea
-              value={output}
-              readOnly
-              className="bg-muted/30 min-h-[120px] resize-none cursor-default"
-              rows={5}
-              placeholder="apple, banana, cherry, date"
-            />
-          </div>
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto_1fr] items-center gap-4">
+        {/* Input Section */}
+        <div className="space-y-2">
+          <label htmlFor="inputArea" className="text-sm font-medium text-foreground">
+            {inputLabel}
+          </label>
+          <Textarea
+            id="inputArea"
+            placeholder={inputPlaceholder}
+            value={input}
+            onChange={handleInputChange}
+            className="bg-background/50 min-h-[120px] resize-none"
+            rows={5}
+          />
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex flex-wrap gap-2">
-          <Button 
-            onClick={handleConvert}
-            disabled={!input.trim()}
-            variant="default"
-          >
-            <ArrowRightLeft className="mr-2 h-4 w-4" />
-            Convert
-          </Button>
-          
-          <Button 
-            onClick={copyOutput}
-            disabled={!output}
-            variant="outline"
-          >
-            <Copy className="mr-2 h-4 w-4" />
-            Copy Output
-          </Button>
-          
-          <Button 
-            onClick={clearAll}
-            disabled={!input && !output}
-            variant="outline"
-          >
-            <RotateCcw className="mr-2 h-4 w-4" />
-            Clear
+        {/* Swap Button */}
+        <div className="flex justify-center">
+          <Button onClick={swapConversion} variant="ghost" size="icon" aria-label="Swap conversion direction">
+            <ArrowRightLeft className="h-5 w-5 text-primary" />
           </Button>
         </div>
 
-        {/* Stats */}
-        {input && (
-          <div className="text-xs text-muted-foreground">
-            {input.split('\n').filter(word => word.trim()).length} words detected
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  )
+        {/* Output Section */}
+        <div className="space-y-2">
+          <label htmlFor="outputArea" className="text-sm font-medium text-foreground">
+            {outputLabel}
+          </label>
+          <Textarea
+            id="outputArea"
+            value={output}
+            readOnly
+            className="bg-muted/30 min-h-[120px] resize-none cursor-default"
+            rows={5}
+            placeholder={outputPlaceholder}
+          />
+        </div>
+      </div>
+
+      {/* Action Buttons */}
+      <div className="flex flex-wrap gap-2">
+        <Button onClick={copyOutput} disabled={!output} variant="outline">
+          <Copy className="mr-2 h-4 w-4" />
+          Copy Output
+        </Button>
+        <Button onClick={clearAll} disabled={!input && !output} variant="outline">
+          <RotateCcw className="mr-2 h-4 w-4" />
+          Clear
+        </Button>
+      </div>
+
+      {/* Stats */}
+      {input && (
+        <div className="text-xs text-muted-foreground pt-2">
+          {getWordCount()} words detected in input
+        </div>
+      )}
+    </div>
+  );
 }

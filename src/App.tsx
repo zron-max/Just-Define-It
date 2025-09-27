@@ -1,30 +1,53 @@
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { ThemeProvider } from "@/components/ThemeProvider";
-import Index from "./pages/Index";
+import { Routes, Route } from "react-router-dom";
+import HomePage from './pages/HomePage';
+import EtymologyPage from './pages/EtymologyPage';
+import DefinerPage from './pages/DefinerPage';
 import NotFound from "./pages/NotFound";
+import { useAppContext } from "./contexts/AppContext";
+import AboutPage from "./pages/AboutPage";
+import ApiKeyInput from "./components/ApiKeyInput";
+import ProtectedRoute from "./components/ProtectedRoute"; // <-- Import our guard
 
-const queryClient = new QueryClient();
+export default function App() {
+  const { isApiKeyModalOpen, closeApiKeyModal, apiKey, setApiKey } = useAppContext();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <ThemeProvider defaultTheme="dark">
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
-    </ThemeProvider>
-  </QueryClientProvider>
-);
+  return (
+    <>
+      <Routes>
+        <Route path="/" element={<HomePage />} />
 
-export default App;
+        {/* --- These routes are now protected --- */}
+        <Route
+          path="/etymology"
+          element={
+            <ProtectedRoute>
+              <EtymologyPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/definer"
+          element={
+            <ProtectedRoute>
+              <DefinerPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="/about" element={<AboutPage />} />
+
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+
+      {isApiKeyModalOpen && (
+        <ApiKeyInput
+          initialApiKey={apiKey || ''}
+          onApiKeySaved={(key) => {
+            setApiKey(key);
+            closeApiKeyModal();
+          }}
+          onCancel={apiKey ? closeApiKeyModal : undefined}
+        />
+      )}
+    </>
+  );
+}

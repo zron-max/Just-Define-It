@@ -1,0 +1,28 @@
+# dependencies
+/node_modules
+
+# build outputs
+/build
+/dist
+/out
+/public_html # if used for deployment
+
+# local environment variables
+.env
+.env.local
+.env.*.local
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# misc
+.DS_Store # macOS specific
+Thumbs.db # Windows specific
+.idea/ # IntelliJ IDEA project files
+.vscode/ # VS Code specific settings (optional, depending on project needs)
+*.log
+*.tmp
+*.bak
+*.swp

@@ -1,0 +1,148 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Neptune Theme v1.1 - A Modern, Accessible Color System
+  --------------------------------------------------
+  Light mode has been updated to a softer, grayish palette for reduced eye strain.
+*/
+
+@layer base {
+  :root {
+    /* --- Light Mode (Softer Gray Version) --- */
+    --background: 220 20% 96%;
+    /* Softer, grayish background */
+    --foreground: 220 20% 15%;
+    /* Dark slate for high contrast */
+    --ring: 217 91% 60%;
+    --radius: 0.75rem;
+    
+
+    --card: 220 20% 98.5%;
+    /* Off-white card to lift off the background */
+    --card-foreground: 220 20% 15%;
+
+    --popover: 220 20% 98.5%;
+    --popover-foreground: 220 20% 15%;
+    --gradient-primary: linear-gradient(145deg, hsl(var(--primary)), hsl(217 91% 55%));
+    --primary: 217 91% 60%;
+    /* Vibrant, accessible blue */
+    --primary-foreground: 210 20% 98%;
+    /* White */
+
+    --secondary: 220 15% 92%;
+    /* Light slate gray */
+    --secondary-foreground: 220 20% 25%;
+
+    --muted: 220 15% 92%;
+    --muted-foreground: 220 10% 45%;
+
+    --accent: 220 15% 92%;
+    --accent-foreground: 220 20% 25%;
+
+    --destructive: 0 84% 60%;
+    /* Bright, clear red for warnings */
+    --destructive-foreground: 210 20% 98%;
+
+    --border: 220 15% 88%;
+    --input: 220 15% 88%;
+    --ring: 217 91% 60%;
+
+    --radius: 0.75rem;
+
+    /* App-specific light colors */
+    --gradient-card: linear-gradient(145deg, hsl(220 20% 99%), hsl(220 20% 97%));
+    --shadow-elegant: 0 6px 24px -4px hsl(220 20% 15% / 0.1);
+
+    /* Mode-specific themes - Light */
+    --mode-define-accent: 217 91% 60%;
+    /* Blue */
+    --mode-compare-accent: 38 92% 50%;
+    /* Gold/Orange */
+    --mode-synonyms-accent: 142 71% 45%;
+    /* Green */
+
+    --mode-define-hover: 217 91% 95%;
+    --mode-compare-hover: 38 92% 95%;
+    --mode-synonyms-hover: 142 71% 95%;
+    mark {
+      @apply bg-primary/10 text-primary font-semibold rounded px-1 py-0.5 align-middle;
+    }
+    .dark mark {
+      @apply bg-primary/20 text-primary/90 align-middle;
+    }
+  }
+  .dark {
+    /* --- Dark Mode (Unchanged) --- */
+    --background: 220 20% 7%;
+    --foreground: 220 15% 95%;
+    --input: 220 15% 17%;
+    --ring: 217 91% 65%;
+    --card: 220 20% 11%;
+    --card-foreground: 220 15% 95%;
+
+    --popover: 220 20% 7%;
+    --popover-foreground: 220 15% 95%;
+
+    --primary: 217 91% 65%;
+    --primary-foreground: 217 50% 15%;
+    --gradient-primary: linear-gradient(145deg, hsl(var(--primary)), hsl(217 91% 60%));
+    --secondary: 220 15% 17%;
+    --secondary-foreground: 220 15% 95%;
+
+    --muted: 220 15% 17%;
+    --muted-foreground: 220 10% 65%;
+
+    --accent: 220 15% 17%;
+    --accent-foreground: 220 15% 95%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 210 20% 98%;
+
+    --border: 220 15% 17%;
+    --input: 220 15% 17%;
+    --ring: 217 91% 65%;
+
+    /* App-specific dark colors */
+    --gradient-card: linear-gradient(145deg, hsl(220 20% 13%), hsl(220 20% 9%));
+    --shadow-elegant: 0 10px 30px -5px hsl(217 91% 60% / 0.15);
+
+    /* Mode-specific themes - Dark */
+    --mode-define-accent: 217 91% 60%;
+    --mode-compare-accent: 43 84% 65%;
+    --mode-synonyms-accent: 142 61% 55%;
+
+    --mode-define-hover: 217 91% 12%;
+    --mode-compare-hover: 43 84% 12%;
+    --mode-synonyms-hover: 142 61% 12%;
+  }
+
+  /* --- Global Styles & Transitions --- */
+
+  * {
+    @apply border-border transition-colors duration-300;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased leading-relaxed;
+    font-feature-settings: "rlig" 1, "calt" 1;
+   
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-background;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-border rounded-full border-2 border-solid border-background;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-secondary-foreground/30;
+  }
+}

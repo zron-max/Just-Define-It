@@ -55,7 +55,7 @@ export default function HomePage() {
                             <a href="https://tally.so/r/waVDBb" target="_blank" rel="noopener noreferrer" className="flex items-center justify-center w-9 h-9 rounded-lg bg-muted hover:bg-muted/80 transition-colors" aria-label="Buy me a coffee">
                                 <Coffee className="h-4 w-4 text-muted-foreground" />
                             </a>
-                            <Link to="/about" className="flex items-center justify-center w-9 h-9 rounded-lg bg-muted hover:bg-muted/80 transition-colors" aria-label="About the developer">
+                            <Link to="https://tally.so/r/3xOAjv" className="flex items-center justify-center w-9 h-9 rounded-lg bg-muted hover:bg-muted/80 transition-colors" aria-label="About the developer">
                                 <User className="h-4 w-4 text-muted-foreground" />
                             </Link>
                             <ThemeToggle />
